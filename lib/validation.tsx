@@ -1,8 +1,8 @@
 import { z } from "zod"
-import { categories, types } from "./consts"
+import { categories, typesArray } from "./consts"
 
 export const transactionSchema = z.object({
-  type: z.enum(types as [string, ...string[]]),
+  type: z.enum(typesArray),
   category: z.preprocess((val: unknown) => (val as any)?.length ? val : undefined, z.string().optional()),
   amount: z.coerce.number().min(1, {
     message: "Amount must be at least 1"
