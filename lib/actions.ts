@@ -7,6 +7,11 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { Transaction, DateRange } from '../types';
 
+type LoginState = {
+  error?: boolean;
+  message?: string;
+};
+
 type UploadAvatarState = {
   error?: boolean;
   message?: string;
@@ -388,4 +393,13 @@ export async function updateSettings(
       message: 'Updated user settings (demo mode)'
     };
   }
+}
+
+export async function login(
+  prevState: LoginState,
+  formData: FormData
+): Promise<LoginState> {
+  // In demo mode, just redirect to dashboard without authentication
+  console.log('Demo login attempt for:', formData.get('email'));
+  redirect('/dashboard');
 }
