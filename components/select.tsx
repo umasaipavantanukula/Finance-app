@@ -11,6 +11,7 @@ export default forwardRef<HTMLSelectElement, SelectProps>(function Select(props,
       ref={ref} 
       {...rest} 
       className={`w-full rounded-md shadow-sm border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-950 ${className}`}
+      suppressHydrationWarning={true}
     />
   );
 });

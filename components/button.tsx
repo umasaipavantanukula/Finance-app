@@ -12,6 +12,7 @@ export default function Button({ variant = 'default', size = 'base', className =
     <button 
       {...props} 
       className={`${variants[variant]} ${sizes[size]} ${className}`}
+      suppressHydrationWarning={true}
     />
   );
 }

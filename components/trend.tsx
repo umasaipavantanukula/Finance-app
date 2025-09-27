@@ -1,9 +1,10 @@
 import { useMemo } from "react"
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import { useFormatCurrency } from "@/hooks/use-format-currency"
+import { TrendType } from "@/lib/consts"
 
 interface TrendProps {
-  type: 'Income' | 'Expense' | 'Investment' | 'Saving';
+  type: TrendType;
   amount: number;
   prevAmount: number;
 }
@@ -11,7 +12,7 @@ interface TrendProps {
 export default function Trend({
   type, amount, prevAmount
 }: TrendProps) {
-  const colorClasses = {
+  const colorClasses: Record<TrendType, string> = {
     'Income': 'text-green-700 dark:text-green-300',
     'Expense': 'text-red-700 dark:text-red-300',
     'Investment': 'text-indigo-700 dark:text-indigo-300',

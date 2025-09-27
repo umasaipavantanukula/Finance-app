@@ -13,23 +13,47 @@ interface PageHeaderProps {
 
 export default async function PageHeader({ className = '' }: PageHeaderProps) {
   const theme = useServerDarkMode()
-  const supabase = createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
-  return (
-    <header className={`flex justify-between items-center ${className}`}>
-      <Link href="/dashboard" className="text-xl hover:underline underline-offset-8 decoration-2">Finance App</Link>
+  
+  try {
+    const supabase = createClient()
+    const { data: { user }, error } = await supabase.auth.getUser()
+    
+    // Demo mode: Show default user even if no auth user exists
+    const demoUser = user || { user_metadata: { fullName: 'Demo User' }, email: 'demo@example.com' }
+    const showUser = true // Always show user in demo mode
+    
+    return (
+      <header className={`flex justify-between items-center ${className}`}>
+        <Link href="/dashboard" className="text-xl hover:underline underline-offset-8 decoration-2">Finance App</Link>
 
-      <div className="flex items-center">
-        <DarkModeToggle defaultMode={theme} />
-        {user && <Link href="/dashboard/settings" className={`flex items-center space-x-1 ${variants['ghost']} ${sizes['sm']}`}>
-          <Avatar />
-          <span>{user?.user_metadata?.fullName ?? user?.email}</span>
-        </Link>}
-        {user && <SignOutButton />}
-        {!user && <Link href="/login" className={`${variants['ghost']} ${sizes['sm']}`}>
-          <KeyRound className="w-6 h-6" />
-        </Link>}
-      </div>
-    </header>
-  )
+        <div className="flex items-center">
+          <DarkModeToggle defaultMode={theme} />
+          {showUser && <Link href="/dashboard/settings" className={`flex items-center space-x-1 ${variants['ghost']} ${sizes['sm']}`}>
+            <Avatar />
+            <span>{demoUser?.user_metadata?.fullName ?? demoUser?.email}</span>
+          </Link>}
+          {showUser && <SignOutButton />}
+          {!showUser && <Link href="/login" className={`${variants['ghost']} ${sizes['sm']}`}>
+            <KeyRound className="w-6 h-6" />
+          </Link>}
+        </div>
+      </header>
+    )
+  } catch (error) {
+    // Fallback for demo mode
+    return (
+      <header className={`flex justify-between items-center ${className}`}>
+        <Link href="/dashboard" className="text-xl hover:underline underline-offset-8 decoration-2">Finance App</Link>
+
+        <div className="flex items-center">
+          <DarkModeToggle defaultMode={theme} />
+          <Link href="/dashboard/settings" className={`flex items-center space-x-1 ${variants['ghost']} ${sizes['sm']}`}>
+            <Avatar />
+            <span>Demo User</span>
+          </Link>
+          <SignOutButton />
+        </div>
+      </header>
+    )
+  }
 }

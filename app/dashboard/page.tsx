@@ -10,6 +10,7 @@ import { types } from "@/lib/consts"
 import Range from "./components/range"
 import TransactionListWrapper from "./components/transaction-list-wrapper"
 import { createClient } from "@/lib/supabase/server"
+import { convertRangeToDateRange } from "@/lib/utils"
 
 export default async function Page({ searchParams }) {
   const supabase = createClient()
@@ -24,7 +25,8 @@ export default async function Page({ searchParams }) {
     console.log('No user authenticated, using default settings');
   }
   
-  const range = searchParams?.range ?? settings?.defaultView ?? 'last30days'
+  const rangeString = searchParams?.range ?? settings?.defaultView ?? 'last30days'
+  const range = convertRangeToDateRange(rangeString)
 
   return (<div className="space-y-8">
     <section className="flex justify-between items-center">
