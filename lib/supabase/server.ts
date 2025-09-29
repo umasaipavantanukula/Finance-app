@@ -11,28 +11,30 @@ export function createClient() {
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error('Missing Supabase environment variables:', { 
       url: !!supabaseUrl, 
-      key: !!supabaseAnonKey 
+      key: !!supabaseAnonKey,
+      urlValue: supabaseUrl ? 'SET' : 'MISSING',
+      keyValue: supabaseAnonKey ? 'SET' : 'MISSING'
     });
     
-    // Return a mock client that will throw errors gracefully
+    // Return a mock client that will provide more helpful error messages
     return {
       auth: {
-        getUser: () => Promise.resolve({ data: { user: null }, error: new Error('Supabase not configured') }),
-        signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Supabase not configured') }),
-        signUp: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Supabase not configured') }),
-        signOut: () => Promise.resolve({ error: new Error('Supabase not configured') }),
-        updateUser: () => Promise.resolve({ data: { user: null }, error: new Error('Supabase not configured') })
+        getUser: () => Promise.resolve({ data: { user: null }, error: new Error('Environment variables not configured on Vercel. Please check your deployment settings.') }),
+        signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Authentication unavailable: Supabase environment variables missing in production deployment.') }),
+        signUp: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Authentication unavailable: Supabase environment variables missing in production deployment.') }),
+        signOut: () => Promise.resolve({ error: new Error('Authentication unavailable: Supabase not configured') }),
+        updateUser: () => Promise.resolve({ data: { user: null }, error: new Error('Authentication unavailable: Supabase not configured') })
       },
       from: () => ({
-        select: () => ({ eq: () => ({ order: () => ({ range: () => Promise.resolve({ data: [], error: new Error('Supabase not configured') }) }) }) }),
-        insert: () => Promise.resolve({ error: new Error('Supabase not configured') }),
-        update: () => ({ eq: () => Promise.resolve({ error: new Error('Supabase not configured') }) }),
-        delete: () => ({ eq: () => Promise.resolve({ error: new Error('Supabase not configured') }) })
+        select: () => ({ eq: () => ({ order: () => ({ range: () => Promise.resolve({ data: [], error: new Error('Database unavailable: Supabase not configured') }) }) }) }),
+        insert: () => Promise.resolve({ error: new Error('Database unavailable: Supabase not configured') }),
+        update: () => ({ eq: () => Promise.resolve({ error: new Error('Database unavailable: Supabase not configured') }) }),
+        delete: () => ({ eq: () => Promise.resolve({ error: new Error('Database unavailable: Supabase not configured') }) })
       }),
       storage: {
         from: () => ({
-          upload: () => Promise.resolve({ error: new Error('Supabase not configured') }),
-          remove: () => Promise.resolve({ error: new Error('Supabase not configured') })
+          upload: () => Promise.resolve({ error: new Error('Storage unavailable: Supabase not configured') }),
+          remove: () => Promise.resolve({ error: new Error('Storage unavailable: Supabase not configured') })
         })
       }
     } as any;
