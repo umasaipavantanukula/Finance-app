@@ -12,6 +12,11 @@ type LoginState = {
   message?: string;
 };
 
+type SignUpState = {
+  error?: boolean;
+  message?: string;
+};
+
 type UploadAvatarState = {
   error?: boolean;
   message?: string;
@@ -22,81 +27,43 @@ type UpdateSettingsState = {
   message?: string;
 };
 
-// Helper function to get transactions from localStorage
-function getStoredTransactions(): Transaction[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem('finance-app-transactions');
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-// Helper function to save transactions to localStorage
-function saveStoredTransactions(transactions: Transaction[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem('finance-app-transactions', JSON.stringify(transactions));
-  } catch {
-    console.error('Failed to save to localStorage');
-  }
-}
-
 export async function createTransaction(formData: z.infer<typeof transactionSchema>): Promise<void> {
   const validated = transactionSchema.safeParse(formData);
   if (!validated.success) {
     throw new Error('Invalid data');
   }
 
-  try {
-    // Prepare data for database - map form fields to database schema
-    const transactionData = {
-      user_id: 'demo-user',
-      type: validated.data.type,
-      category: validated.data.category || '',
-      amount: validated.data.amount,
-      description: validated.data.description || '',
-      date: validated.data.created_at, // Map form's created_at to database's date field
-      created_at: new Date().toISOString() // Set current timestamp for created_at
-    };
-
-    // Try to save to Supabase database
-    const { error } = await createClient().from('transactions').insert(transactionData);
-
-    if (error) {
-      console.error('Error creating transaction (using localStorage):', error);
-      // Fallback: Save to localStorage with generated ID
-      const newTransaction: Transaction = {
-        ...transactionData,
-        id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      };
-      
-      const stored = getStoredTransactions();
-      stored.unshift(newTransaction); // Add to beginning of array
-      saveStoredTransactions(stored);
-      console.log('Transaction saved to localStorage:', newTransaction);
-    }
-  } catch (error) {
-    console.error('Database connection failed (using localStorage):', error);
-    // Fallback: Save to localStorage
-    const newTransaction: Transaction = {
-      id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      user_id: 'demo-user',
-      type: validated.data.type,
-      category: validated.data.category || '',
-      amount: validated.data.amount,
-      description: validated.data.description || '',
-      date: validated.data.created_at,
-      created_at: new Date().toISOString()
-    };
-    
-    const stored = getStoredTransactions();
-    stored.unshift(newTransaction);
-    saveStoredTransactions(stored);
-    console.log('Transaction saved to localStorage:', newTransaction);
+  const supabase = createClient();
+  
+  // Get the authenticated user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !user) {
+    throw new Error('You must be signed in to create transactions');
   }
 
+  // Prepare data for database
+  const transactionData = {
+    user_id: user.id,
+    type: validated.data.type,
+    category: validated.data.category || '',
+    amount: validated.data.amount,
+    description: validated.data.description || '',
+    date: validated.data.created_at, // Map form's created_at to database's date field
+    created_at: new Date().toISOString()
+  };
+
+  console.log('Creating transaction in Supabase:', transactionData);
+
+  // Save to Supabase database
+  const { error } = await supabase.from('transactions').insert(transactionData);
+
+  if (error) {
+    console.error('Error creating transaction in Supabase:', error);
+    throw new Error(`Failed to create transaction: ${error.message}`);
+  }
+
+  console.log('Transaction successfully created in Supabase');
   revalidatePath('/dashboard');
 }
 
@@ -106,91 +73,50 @@ export async function updateTransaction(id: string, formData: z.infer<typeof tra
     throw new Error('Invalid data');
   }
 
-  try {
-    // Prepare data for database - map form fields to database schema
-    const updateData = {
-      type: validated.data.type,
-      category: validated.data.category || '',
-      amount: validated.data.amount,
-      description: validated.data.description || '',
-      date: validated.data.created_at // Map form's created_at to database's date field
-    };
-
-    // Try to update in Supabase database
-    const { error } = await createClient().from('transactions')
-      .update(updateData)
-      .eq('id', id)
-      .eq('user_id', 'demo-user');
-
-    if (error) {
-      console.error('Error updating transaction (using localStorage):', error);
-      // Fallback: Update in localStorage
-      const stored = getStoredTransactions();
-      const index = stored.findIndex(t => t.id === id);
-      if (index !== -1) {
-        stored[index] = { ...stored[index], ...updateData };
-        saveStoredTransactions(stored);
-        console.log('Transaction updated in localStorage:', stored[index]);
-      }
-    }
-  } catch (error) {
-    console.error('Database connection failed (using localStorage):', error);
-    // Fallback: Update in localStorage
-    const stored = getStoredTransactions();
-    const index = stored.findIndex(t => t.id === id);
-    if (index !== -1) {
-      stored[index] = { 
-        ...stored[index], 
-        type: validated.data.type,
-        category: validated.data.category || '',
-        amount: validated.data.amount,
-        description: validated.data.description || '',
-        date: validated.data.created_at
-      };
-      saveStoredTransactions(stored);
-      console.log('Transaction updated in localStorage:', stored[index]);
-    }
+  const supabase = createClient();
+  
+  // Get the authenticated user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !user) {
+    throw new Error('You must be signed in to update transactions');
   }
 
+  // Prepare data for database
+  const updateData = {
+    type: validated.data.type,
+    category: validated.data.category || '',
+    amount: validated.data.amount,
+    description: validated.data.description || '',
+    date: validated.data.created_at
+  };
+
+  console.log('Updating transaction in Supabase:', id, updateData);
+
+  // Update in Supabase database
+  const { error } = await supabase.from('transactions')
+    .update(updateData)
+    .eq('id', id)
+    .eq('user_id', user.id); // Ensure user can only update their own transactions
+
+  if (error) {
+    console.error('Error updating transaction in Supabase:', error);
+    throw new Error(`Failed to update transaction: ${error.message}`);
+  }
+
+  console.log('Transaction successfully updated in Supabase');
   revalidatePath('/dashboard');
 }
 
 export async function fetchTransactions(range: DateRange, offset: number = 0, limit: number = 10): Promise<Transaction[]> {
-  let allTransactions: Transaction[] = [];
-
-  try {
-    // Try to fetch from Supabase first
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', 'demo-user')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (!error && data && data.length > 0) {
-      allTransactions = [...data as Transaction[]];
-    }
-  } catch (error) {
-    console.log('Error fetching from database, checking localStorage:', error);
-  }
-
-  // Add localStorage transactions
-  const storedTransactions = getStoredTransactions();
-  if (storedTransactions.length > 0) {
-    // Combine stored transactions with database transactions (if any)
-    // Remove duplicates by ID and sort by created_at
-    const combined = [...storedTransactions, ...allTransactions];
-    const uniqueTransactions = combined.filter((transaction, index, self) =>
-      index === self.findIndex((t) => t.id === transaction.id)
-    );
-    allTransactions = uniqueTransactions.sort((a, b) => 
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-  }
-
-  // If still no transactions, use mock data
-  if (allTransactions.length === 0) {
+  const supabase = createClient();
+  
+  // Get the current user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !user) {
+    console.log('User not authenticated, showing mock data');
+    // Return mock data for unauthenticated users
     const mockTransactions: Transaction[] = [
       {
         id: '1',
@@ -221,63 +147,54 @@ export async function fetchTransactions(range: DateRange, offset: number = 0, li
         created_at: '2025-09-22T15:30:00.000Z',
         date: '2025-09-22',
         user_id: 'demo-user'
-      },
-      {
-        id: '4',
-        type: 'Expense',
-        category: 'Entertainment',
-        description: 'Movie tickets',
-        amount: 25.00,
-        created_at: '2025-09-21T19:00:00.000Z',
-        date: '2025-09-21',
-        user_id: 'demo-user'
-      },
-      {
-        id: '5',
-        type: 'Income',
-        category: 'Freelance',
-        description: 'Web design project',
-        amount: 750.00,
-        created_at: '2025-09-20T14:00:00.000Z',
-        date: '2025-09-20',
-        user_id: 'demo-user'
       }
     ];
-    allTransactions = mockTransactions;
+    return mockTransactions.slice(offset, offset + limit);
   }
 
-  // Apply pagination
-  const startIndex = offset;
-  const endIndex = startIndex + limit;
-  return allTransactions.slice(startIndex, endIndex);
+  console.log('Fetching transactions for user:', user.id);
+
+  // Fetch from Supabase for authenticated users
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.error('Error fetching transactions from Supabase:', error);
+    throw new Error(`Failed to fetch transactions: ${error.message}`);
+  }
+
+  console.log('Successfully fetched', data?.length || 0, 'transactions from Supabase');
+  return data as Transaction[] || [];
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
-  try {
-    // Try to delete from Supabase database
-    const supabase = createClient();
-    const { error } = await supabase.from('transactions')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', 'demo-user');
-    
-    if (error) {
-      console.error('Error deleting transaction (using localStorage):', error);
-      // Fallback: Delete from localStorage
-      const stored = getStoredTransactions();
-      const filtered = stored.filter(t => t.id !== id);
-      saveStoredTransactions(filtered);
-      console.log('Transaction deleted from localStorage:', id);
-    }
-  } catch (error) {
-    console.error('Database connection failed (using localStorage):', error);
-    // Fallback: Delete from localStorage
-    const stored = getStoredTransactions();
-    const filtered = stored.filter(t => t.id !== id);
-    saveStoredTransactions(filtered);
-    console.log('Transaction deleted from localStorage:', id);
-  }
+  const supabase = createClient();
   
+  // Get the authenticated user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !user) {
+    throw new Error('You must be signed in to delete transactions');
+  }
+
+  console.log('Deleting transaction from Supabase:', id);
+
+  // Delete from Supabase database
+  const { error } = await supabase.from('transactions')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id); // Ensure user can only delete their own transactions
+  
+  if (error) {
+    console.error('Error deleting transaction from Supabase:', error);
+    throw new Error(`Failed to delete transaction: ${error.message}`);
+  }
+
+  console.log('Transaction successfully deleted from Supabase');
   revalidatePath('/dashboard');
 }
 
@@ -399,7 +316,137 @@ export async function login(
   prevState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
-  // In demo mode, just redirect to dashboard without authentication
-  console.log('Demo login attempt for:', formData.get('email'));
-  redirect('/dashboard');
+  try {
+    const supabase = createClient();
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    if (!email || !password) {
+      return {
+        error: true,
+        message: 'Email and password are required'
+      };
+    }
+
+    console.log('Attempting login for:', email);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error('Login error:', error);
+      
+      // Provide more specific error messages
+      if (error.message.includes('Invalid login credentials')) {
+        return {
+          error: true,
+          message: 'Invalid email or password. Please check your credentials or sign up if you don\'t have an account.'
+        };
+      }
+      
+      if (error.message.includes('Email not confirmed')) {
+        return {
+          error: true,
+          message: 'Please check your email and confirm your account before signing in.'
+        };
+      }
+
+      return {
+        error: true,
+        message: error.message
+      };
+    }
+
+    console.log('Login successful for:', email);
+    // Successful login
+    redirect('/dashboard');
+  } catch (error) {
+    console.error('Unexpected login error:', error);
+    return {
+      error: true,
+      message: 'An unexpected error occurred. Please try again.'
+    };
+  }
+}
+
+export async function signUp(
+  prevState: SignUpState,
+  formData: FormData
+): Promise<SignUpState> {
+  try {
+    const supabase = createClient();
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const fullName = formData.get('fullName') as string;
+
+    if (!email || !password) {
+      return {
+        error: true,
+        message: 'Email and password are required'
+      };
+    }
+
+    if (password.length < 6) {
+      return {
+        error: true,
+        message: 'Password must be at least 6 characters long'
+      };
+    }
+
+    console.log('Attempting signup for:', email);
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          fullName: fullName || email.split('@')[0],
+        }
+      }
+    });
+
+    if (error) {
+      console.error('Signup error:', error);
+      
+      // Provide more specific error messages
+      if (error.message.includes('User already registered')) {
+        return {
+          error: true,
+          message: 'An account with this email already exists. Please sign in instead.'
+        };
+      }
+
+      return {
+        error: true,
+        message: error.message
+      };
+    }
+
+    console.log('Signup result:', data);
+
+    if (data.user && !data.user.email_confirmed_at) {
+      return {
+        error: false,
+        message: 'Account created! Please check your email to confirm your account before signing in.'
+      };
+    }
+
+    // If email confirmation is not required, redirect to dashboard
+    if (data.user && data.session) {
+      redirect('/dashboard');
+    }
+
+    return {
+      error: false,
+      message: 'Account created successfully! You can now sign in.'
+    };
+  } catch (error) {
+    console.error('Unexpected signup error:', error);
+    return {
+      error: true,
+      message: 'An unexpected error occurred. Please try again.'
+    };
+  }
 }

@@ -18,6 +18,7 @@ export default function TransactionList({ range, initialTransactions }: Transact
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions)
   const [buttonHidden, setButtonHidden] = useState(initialTransactions.length === 0)
   const [loading, setLoading] = useState(false)
+
   const grouped = groupAndSumTransactionsByDate(transactions)
 
   const handleClick = async () => {
