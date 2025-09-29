@@ -9,7 +9,33 @@ export function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables. Please check your .env.local file.');
+    console.error('Missing Supabase environment variables:', { 
+      url: !!supabaseUrl, 
+      key: !!supabaseAnonKey 
+    });
+    
+    // Return a mock client that will throw errors gracefully
+    return {
+      auth: {
+        getUser: () => Promise.resolve({ data: { user: null }, error: new Error('Supabase not configured') }),
+        signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Supabase not configured') }),
+        signUp: () => Promise.resolve({ data: { user: null, session: null }, error: new Error('Supabase not configured') }),
+        signOut: () => Promise.resolve({ error: new Error('Supabase not configured') }),
+        updateUser: () => Promise.resolve({ data: { user: null }, error: new Error('Supabase not configured') })
+      },
+      from: () => ({
+        select: () => ({ eq: () => ({ order: () => ({ range: () => Promise.resolve({ data: [], error: new Error('Supabase not configured') }) }) }) }),
+        insert: () => Promise.resolve({ error: new Error('Supabase not configured') }),
+        update: () => ({ eq: () => Promise.resolve({ error: new Error('Supabase not configured') }) }),
+        delete: () => ({ eq: () => Promise.resolve({ error: new Error('Supabase not configured') }) })
+      }),
+      storage: {
+        from: () => ({
+          upload: () => Promise.resolve({ error: new Error('Supabase not configured') }),
+          remove: () => Promise.resolve({ error: new Error('Supabase not configured') })
+        })
+      }
+    } as any;
   }
 
   return createServerClient(

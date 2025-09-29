@@ -14,16 +14,20 @@ import { convertRangeToDateRange } from "@/lib/utils"
 import DemoNotice from "@/components/demo-notice"
 
 export default async function Page({ searchParams }) {
-  const supabase = createClient()
-  
-  // Handle case where user might not be authenticated (since we bypassed auth)
   let settings = null;
+  let user = null;
+  
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    settings = user?.user_metadata || null;
+    const supabase = createClient()
+    const { data: { user: userData }, error } = await supabase.auth.getUser()
+    
+    if (!error && userData) {
+      user = userData;
+      settings = userData.user_metadata || null;
+    }
   } catch (error) {
-    // If auth fails, continue without user settings
-    console.log('No user authenticated, using default settings');
+    // If Supabase fails, continue without user settings
+    console.log('Supabase not available, using default settings:', error.message);
   }
   
   const rangeString = searchParams?.range ?? settings?.defaultView ?? 'last30days'
