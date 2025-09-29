@@ -292,7 +292,7 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
       {/* Toggle Mode */}
       <div className="text-center text-sm">
         <span className="text-gray-500">
-          {state.mode === 'signin' ? "Don't have an account? " : "Already have an account? "}
+          {state.mode === 'signin' ? "Don&apos;t have an account? " : "Already have an account? "}
         </span>
         <button
           type="button"

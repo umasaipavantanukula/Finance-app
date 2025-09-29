@@ -39,7 +39,7 @@ export default function DemoNotice() {
           </h3>
           <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
             <p>
-              You're viewing a demo with sample data. 
+              You&apos;re viewing a demo with sample data. 
               <Link href="/signup" className="font-semibold underline ml-1">Sign up</Link> or{' '}
               <Link href="/login" className="font-semibold underline">sign in</Link> to manage your own finances!
             </p>
