@@ -438,7 +438,15 @@ export async function login(
     if (error) {
       console.error('Login error:', error);
       
-      // Provide more specific error messages
+      // Handle 403 Forbidden errors (common in production)
+      if (error.message.includes('403') || error.message.includes('Forbidden')) {
+        return {
+          error: true,
+          message: 'Authentication service unavailable. Please check if the site URL is correctly configured in Supabase dashboard.'
+        };
+      }
+      
+      // Handle invalid credentials
       if (error.message.includes('Invalid login credentials')) {
         return {
           error: true,
@@ -446,16 +454,25 @@ export async function login(
         };
       }
       
+      // Handle unconfirmed email
       if (error.message.includes('Email not confirmed')) {
         return {
           error: true,
           message: 'Please check your email and confirm your account before signing in.'
         };
       }
+      
+      // Handle CORS or network issues
+      if (error.message.includes('network') || error.message.includes('CORS')) {
+        return {
+          error: true,
+          message: 'Network error. Please check your internet connection and try again.'
+        };
+      }
 
       return {
         error: true,
-        message: error.message
+        message: `Login failed: ${error.message}`
       };
     }
 
