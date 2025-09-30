@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from '@/lib/supabase/server'
 import { CircleUser } from 'lucide-react'
 import Image from 'next/image'
 
@@ -12,11 +12,11 @@ export default async function Avatar({ width = 32, height = 32 }) {
       return <CircleUser className="w-6 h-6" />
     }
 
-    // Check if avatar is stored as base64 (fallback mode)
-    if (user.user_metadata.avatarBase64) {
+    // Check if avatar is a base64 string (fallback mode)
+    if (user.user_metadata.avatar.startsWith('data:image/')) {
       return (
         <Image 
-          src={user.user_metadata.avatarBase64} 
+          src={user.user_metadata.avatar} 
           width={width} 
           height={height} 
           alt="User avatar" 
@@ -26,11 +26,6 @@ export default async function Avatar({ width = 32, height = 32 }) {
       )
     }
 
-    // Check if avatar filename indicates fallback mode
-    if (user.user_metadata.avatar.startsWith('fallback_')) {
-      return <CircleUser className="w-6 h-6" />
-    }
-
     // Try to get signed URL from Supabase Storage
     const { data: imageData, error } = await supabase.storage
       .from('avatars')
@@ -38,6 +33,19 @@ export default async function Avatar({ width = 32, height = 32 }) {
 
     if (error || !imageData?.signedUrl) {
       console.log('Error creating signed URL for avatar:', error)
+      // If storage fails but we have a base64 fallback, use it
+      if (user.user_metadata.avatarBase64) {
+        return (
+          <Image 
+            src={user.user_metadata.avatarBase64} 
+            width={width} 
+            height={height} 
+            alt="User avatar" 
+            className="rounded-full object-cover"
+            style={{ width: `${width}px`, height: `${height}px` }}
+          />
+        )
+      }
       return <CircleUser className="w-6 h-6" />
     }
 

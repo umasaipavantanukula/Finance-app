@@ -229,6 +229,16 @@ export async function uploadAvatar(
 ): Promise<UploadAvatarState> {
   try {
     const supabase = createClient();
+    
+    // Get user first to ensure they're authenticated
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      return {
+        error: true,
+        message: 'You must be signed in to upload an avatar'
+      };
+    }
+
     const file = formData.get('file') as File;
     
     if (!file || file.size === 0) {
@@ -237,41 +247,106 @@ export async function uploadAvatar(
         message: 'Please select a file to upload'
       };
     }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      return {
+        error: true,
+        message: 'Please upload a valid image file (JPEG, PNG, GIF, or WebP)'
+      };
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      return {
+        error: true,
+        message: 'File size must be less than 10MB'
+      };
+    }
     
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
+    // Use simpler file naming - just use user ID as filename
+    const fileName = `${userData.user.id}.${fileExt}`;
     
-    const { error } = await supabase.storage
-      .from('avatars')
-      .upload(fileName, file);
-    
-    if (error) {
-      console.log('Avatar upload failed (demo mode):', error);
-      return {
-        message: 'Avatar uploaded (demo mode)'
-      };
-    }
-
-    // Try to get user data and handle demo mode
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData.user) {
-      console.log('No user found (demo mode):', userError);
-      return {
-        message: 'Avatar uploaded (demo mode)'
-      };
-    }
-
-    const avatar = userData.user.user_metadata?.avatar;
-    if (avatar) {
-      const { error } = await supabase.storage
+    // Remove old avatar if exists
+    const oldAvatar = userData.user.user_metadata?.avatar;
+    if (oldAvatar) {
+      await supabase.storage
         .from('avatars')
-        .remove([avatar]);
+        .remove([oldAvatar]);
+    }
 
-      if (error) {
-        console.log('Error removing old avatar (demo mode):', error);
+    // Upload new avatar
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, file, {
+        upsert: true
+      });
+    
+    if (uploadError) {
+      console.error('Avatar upload failed:', uploadError);
+      
+      // Provide more specific error messages
+      if (uploadError.message?.includes('Bucket not found')) {
+        return {
+          error: true,
+          message: 'Storage bucket not configured. Please set up the avatars bucket in Supabase.'
+        };
+      }
+      
+      if (uploadError.message?.includes('new row violates row-level security policy')) {
+        // Storage policies not configured - use fallback base64 storage
+        console.log('Storage policies not configured, using base64 fallback');
+        
+        // Convert file to base64
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64 = `data:${file.type};base64,${buffer.toString('base64')}`;
+        
+        // Store as base64 in user metadata
+        const { error: dataUpdateError } = await supabase.auth
+          .updateUser({
+            data: {
+              avatar: `fallback_${fileName}`,
+              avatarBase64: base64
+            }
+          });
+        
+        if (dataUpdateError) {
+          return {
+            error: true,
+            message: 'Failed to save avatar. Please try again.'
+          };
+        }
+        
+        return {
+          message: 'Avatar uploaded successfully! (Note: Configure Supabase Storage policies for better performance)'
+        };
+      }
+      
+      if (uploadError.message?.includes('The resource already exists')) {
+        // Try to remove old file and retry
+        await supabase.storage.from('avatars').remove([fileName]);
+        const { error: retryError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, file);
+          
+        if (retryError) {
+          return {
+            error: true,
+            message: `Upload failed: ${retryError.message}`
+          };
+        }
+      } else {
+        return {
+          error: true,
+          message: `Upload failed: ${uploadError.message}`
+        };
       }
     }
 
+    // Update user metadata with new avatar path
     const { error: dataUpdateError } = await supabase.auth
       .updateUser({
         data: {
@@ -280,19 +355,25 @@ export async function uploadAvatar(
       });
     
     if (dataUpdateError) {
-      console.log('Error updating user avatar (demo mode):', dataUpdateError);
+      console.error('Error updating user metadata:', dataUpdateError);
+      // Clean up uploaded file if metadata update fails
+      await supabase.storage
+        .from('avatars')
+        .remove([fileName]);
       return {
-        message: 'Avatar uploaded (demo mode)'
+        error: true,
+        message: 'Failed to update profile. Please try again.'
       };
     }
 
     return {
-      message: 'Updated the user avatar'
+      message: 'Avatar uploaded successfully!'
     };
   } catch (error) {
-    console.log('Avatar upload error (demo mode):', error);
+    console.error('Avatar upload error:', error);
     return {
-      message: 'Avatar uploaded (demo mode)'
+      error: true,
+      message: 'An error occurred while uploading the avatar. Please try again.'
     };
   }
 }

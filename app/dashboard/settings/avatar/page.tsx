@@ -1,27 +1,28 @@
-'use client'
-import AlertError from "@/components/alert-error"
-import AlertSuccess from "@/components/alert-success"
-import Input from "@/components/input"
-import SubmitButton from "@/components/submit-button"
-import { uploadAvatar } from "@/lib/actions"
-import { useFormState } from 'react-dom'
+import Avatar from "@/components/avatar"
+import { Suspense } from "react"
+import AvatarUploadForm from "./components/avatar-upload-form"
 
-const initialState = {
-  message: '',
-  error: false
+export const metadata = {
+  title: 'Avatar Settings',
 }
 
 export default function Page() {
-  const [state, formAction] = useFormState(uploadAvatar, initialState)
-  return <>
-    <h1 className="text-4xl font-semibold mb-8">
-      Avatar
-    </h1>
-    <form className="space-y-4" action={formAction}>
-      {state?.error && <AlertError>{state?.message}</AlertError>}
-      {!state?.error && state?.message.length > 0 && <AlertSuccess>{state?.message}</AlertSuccess>}
-      <Input type="file" name="file" id="file" />
-      <SubmitButton>Upload Avatar</SubmitButton>
-    </form>
-  </>
+  return (
+    <>
+      <h1 className="text-4xl font-semibold mb-8">
+        Avatar
+      </h1>
+      
+      <div className="mb-8">
+        <h2 className="text-lg font-medium mb-4">Current Avatar</h2>
+        <div className="flex items-center justify-center w-32 h-32 bg-gray-100 dark:bg-gray-800 rounded-full">
+          <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded-full w-16 h-16"></div>}>
+            <Avatar width={128} height={128} />
+          </Suspense>
+        </div>
+      </div>
+
+      <AvatarUploadForm />
+    </>
+  )
 }
