@@ -218,9 +218,27 @@ export async function deleteTransaction(id: string): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
-  const supabase = createClient();
-  const { error } = await supabase.auth.signOut();
-  redirect('/login');
+  try {
+    const supabase = createClient();
+    
+    // Clear all auth state
+    const { error } = await supabase.auth.signOut({
+      scope: 'global'
+    });
+    
+    if (error) {
+      console.error('Sign out error:', error);
+    }
+    
+    // Add a small delay to ensure session is cleared
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+  } catch (error) {
+    console.error('Unexpected sign out error:', error);
+  } finally {
+    // Always redirect to login, even if there's an error
+    redirect('/login');
+  }
 }
 
 export async function uploadAvatar(
@@ -421,6 +439,8 @@ export async function login(
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
+    console.log('Login attempt with email:', email);
+
     if (!email || !password) {
       return {
         error: true,
@@ -428,23 +448,15 @@ export async function login(
       };
     }
 
-    console.log('Attempting login for:', email);
-
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim().toLowerCase(),
       password,
     });
 
+    console.log('Supabase response:', { data: !!data, error: error?.message });
+
     if (error) {
-      console.error('Login error:', error);
-      
-      // Handle 403 Forbidden errors (common in production)
-      if (error.message.includes('403') || error.message.includes('Forbidden')) {
-        return {
-          error: true,
-          message: 'Authentication service unavailable. Please check if the site URL is correctly configured in Supabase dashboard.'
-        };
-      }
+      console.error('Login error details:', error);
       
       // Handle invalid credentials
       if (error.message.includes('Invalid login credentials')) {
@@ -461,14 +473,6 @@ export async function login(
           message: 'Please check your email and confirm your account before signing in.'
         };
       }
-      
-      // Handle CORS or network issues
-      if (error.message.includes('network') || error.message.includes('CORS')) {
-        return {
-          error: true,
-          message: 'Network error. Please check your internet connection and try again.'
-        };
-      }
 
       return {
         error: true,
@@ -476,9 +480,22 @@ export async function login(
       };
     }
 
-    console.log('Login successful for:', email);
-    // Successful login
+    if (!data.user || !data.session) {
+      console.error('Incomplete login data:', { 
+        hasUser: !!data.user, 
+        hasSession: !!data.session,
+        user: data.user,
+        session: !!data.session 
+      });
+      return {
+        error: true,
+        message: 'Login incomplete. Please try again.'
+      };
+    }
+
+    console.log('Login successful, redirecting to dashboard');
     redirect('/dashboard');
+    
   } catch (error) {
     console.error('Unexpected login error:', error);
     return {
@@ -505,6 +522,15 @@ export async function signUp(
       };
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return {
+        error: true,
+        message: 'Please enter a valid email address'
+      };
+    }
+
     if (password.length < 6) {
       return {
         error: true,
@@ -515,7 +541,7 @@ export async function signUp(
     console.log('Attempting signup for:', email);
 
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: email.trim().toLowerCase(),
       password,
       options: {
         data: {
@@ -527,31 +553,58 @@ export async function signUp(
     if (error) {
       console.error('Signup error:', error);
       
-      // Provide more specific error messages
+      // Handle user already exists
       if (error.message.includes('User already registered')) {
         return {
           error: true,
           message: 'An account with this email already exists. Please sign in instead.'
         };
       }
+      
+      // Handle rate limiting
+      if (error.message.includes('rate limit') || error.message.includes('too many')) {
+        return {
+          error: true,
+          message: 'Too many signup attempts. Please wait a moment and try again.'
+        };
+      }
+      
+      // Handle weak password
+      if (error.message.includes('password') && error.message.includes('weak')) {
+        return {
+          error: true,
+          message: 'Password is too weak. Please use a stronger password with at least 6 characters.'
+        };
+      }
 
       return {
         error: true,
-        message: error.message
+        message: `Signup failed: ${error.message}`
       };
     }
 
     console.log('Signup result:', data);
 
-    if (data.user && !data.user.email_confirmed_at) {
+    // Check if user was created successfully
+    if (!data.user) {
+      return {
+        error: true,
+        message: 'Failed to create account. Please try again.'
+      };
+    }
+
+    // Check if email confirmation is required
+    if (data.user && !data.user.email_confirmed_at && !data.session) {
       return {
         error: false,
         message: 'Account created! Please check your email to confirm your account before signing in.'
       };
     }
 
-    // If email confirmation is not required, redirect to dashboard
+    // If email confirmation is not required and we have a session, redirect to dashboard
     if (data.user && data.session) {
+      // Add a small delay to ensure session is properly set
+      await new Promise(resolve => setTimeout(resolve, 100));
       redirect('/dashboard');
     }
 

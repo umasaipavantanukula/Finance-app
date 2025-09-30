@@ -4,6 +4,7 @@ import SubmitButton from "@/components/submit-button";
 import { signUp } from "@/lib/actions";
 import { useFormState } from "react-dom";
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 
 const initialState = {
   message: '',
@@ -12,33 +13,51 @@ const initialState = {
 
 export default function SignUpForm() {
   const [state, formAction] = useFormState(signUp, initialState);
+  const formRef = useRef<HTMLFormElement>(null)
+
+  // Clear form on successful signup
+  useEffect(() => {
+    if (state?.message && !state?.error) {
+      // Don't clear immediately to show success message
+    }
+  }, [state])
   
   return (
     <div className="space-y-4">
-      <form action={formAction} className="space-y-4">
+      <form ref={formRef} action={formAction} className="space-y-4">
         <Input 
           type="text" 
           placeholder="Full Name (optional)"
-          name="fullName" 
+          name="fullName"
+          autoComplete="name"
         />
         <Input 
           type="email" 
           placeholder="name@example.com"
           name="email" 
-          required 
+          required
+          autoComplete="email"
         />
         <Input 
           type="password" 
           placeholder="Password (min. 6 characters)"
           name="password" 
-          required 
+          required
+          autoComplete="new-password"
         />
         <SubmitButton type="submit" size="sm" className="w-full">
           Create Account
         </SubmitButton>
-        <p className={`${state?.error ? 'text-red-500' : 'text-green-500'} text-sm text-center`}>
-          {state?.message}
-        </p>
+        
+        {state?.message && (
+          <div className={`p-3 rounded-md text-sm text-center ${
+            state?.error 
+              ? 'bg-red-50 text-red-800 border border-red-200' 
+              : 'bg-green-50 text-green-800 border border-green-200'
+          }`}>
+            {state?.message}
+          </div>
+        )}
       </form>
       
       <div className="text-center">

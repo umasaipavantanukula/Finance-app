@@ -11,16 +11,36 @@ const initialState = {
 
 export default function LoginForm() {
   const [state, formAction] = useFormState(login, initialState)
-  return <form action={formAction} className="space-y-4">
-    <Input type="email" placeholder="name@example.com"
-      name="email" required />
-    <Input type="password" placeholder="Password"
-      name="password" required />
-    <SubmitButton type="submit" size="sm" className="w-full">
-      Sign in
-    </SubmitButton>
-    <p className={`${state?.error ? 'text-red-500' : 'text-green-500'} text-sm text-center`}>
-      {state?.message}
-    </p>
-  </form>
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <Input 
+        type="email" 
+        placeholder="name@example.com"
+        name="email" 
+        required 
+        autoComplete="email"
+      />
+      <Input 
+        type="password" 
+        placeholder="Password"
+        name="password" 
+        required 
+        autoComplete="current-password"
+      />
+      <SubmitButton type="submit" size="sm" className="w-full">
+        Sign in
+      </SubmitButton>
+      
+      {state?.message && (
+        <div className={`p-3 rounded-md text-sm text-center ${
+          state?.error 
+            ? 'bg-red-50 text-red-800 border border-red-200' 
+            : 'bg-green-50 text-green-800 border border-green-200'
+        }`}>
+          {state?.message}
+        </div>
+      )}
+    </form>
+  )
 }
